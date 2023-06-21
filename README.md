@@ -11,9 +11,9 @@ The first section of the streamlit app allows for either the uploading of a csv 
   
 Following the data entry, the next field will ask for the number of replicates performed for any unknown sample. This value is important in the uncertainty calculation, which so far is calculated by:  
   
-```math U = t * {s_{\hat{x}}}_0
+$U = t * {s_{\hat{x}}}_0$
 
-```
+
 
 Where   
 ```math
