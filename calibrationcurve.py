@@ -21,6 +21,8 @@ class Experiment:
     y: str = None # same here
 
     def user_input(self):
+        """function to select to upload a csv or enter data manually. """
+
         st.write("Enter your data into the field below or upload a csv file.")
         option = st.selectbox(
             'Do you want to enter your data or upload a CSV?',
@@ -40,8 +42,6 @@ class Experiment:
         elif option == 'Upload a CSV':
             self.get_uploaded_file()
 
-    # create df that can be edited to allow for user input
-    # todo: add option to upload csv
 
     def generate_dataframe(self):
         self.df = pd.DataFrame(
@@ -54,7 +54,6 @@ class Experiment:
         self.x = self.data.columns[0]
         self.y = self.data.columns[1]
 
-    # user input functions to accept reps and cal line points(maybe just read from data/non na rows)
 
     def get_uploaded_file(self):
         uploaded_file = st.file_uploader("Choose a file")
@@ -68,10 +67,12 @@ class Experiment:
             
 
     def get_test_replicates(self):
+        """function to get the number of test replicates."""
         self.test_replicates = st.number_input("Enter number of test replicates", min_value=1, value=1, step=1)
         st.write("Number of test replicates: ", self.test_replicates)
 
     def get_cal_line_points(self):
+        """function to get the number of points on the calibration line."""
         self.cal_line_points = len(self.data)
         assert len(self.data) > 1, "Calibration line must have at least 2 points"
 
