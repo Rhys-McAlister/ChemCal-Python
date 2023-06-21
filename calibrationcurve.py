@@ -46,10 +46,10 @@ class Experiment:
         self.df = pd.DataFrame(
             [
                 {"predictor": 1, "response": 1028723 },
-                {"predictor": 5, "response": 4623393 }
-                {"predictor": 10, "response": 9147662 }
-                {"predictor": 20, "response": 15767629 }
-                {"predictor": 50, "response": 33143949 }
+                {"predictor": 5, "response": 4623393 },
+                {"predictor": 10, "response": 9147662 },
+                {"predictor": 20, "response": 15767629 },
+                {"predictor": 50, "response": 33143949 },
                 
             ]
         )
