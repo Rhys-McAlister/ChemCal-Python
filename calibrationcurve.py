@@ -7,56 +7,79 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from dataclasses import dataclass
 import typing
-from abc import ABC, abstractmethod
 
-st.title("Calibration Curve")
+st.title("Chem Cal Python")
+
 
 @dataclass
 class Experiment:
+    df: pd.DataFrame = None
     data: pd.DataFrame = None
     test_replicates: int = None
     cal_line_points: int = None 
     x: str = None # read in the column name from the edited df and use this variable for indexing
     y: str = None # same here
 
+    def user_input(self):
+        st.write("Enter your data into the field below or upload a csv file.")
+        option = st.selectbox(
+            'Do you want to enter your data or upload a CSV?',
+            ('Upload a CSV', 'Enter the data'))
+
+        st.write("Enter the column names for your predictor and response variables exactly as they appear in your csv file.")
+
+
+        self.x = st.text_input("Enter predictor column name")
+    
+        self.y = st.text_input("Enter response column name")
+
+        st.write('You selected:', option)
+
+        if option == 'Enter the data':
+            self.generate_dataframe()
+        elif option == 'Upload a CSV':
+            self.get_uploaded_file()
 
     # create df that can be edited to allow for user input
     # todo: add option to upload csv
 
     def generate_dataframe(self):
-        df = pd.DataFrame(
+        self.df = pd.DataFrame(
             [
                 {"predictor": 1, "response": 1 },
                 
             ]
         )
-        self.data = st.data_editor(df, num_rows="dynamic")
+        self.data = st.data_editor(self.df, num_rows="dynamic")
         self.x = self.data.columns[0]
         self.y = self.data.columns[1]
 
     # user input functions to accept reps and cal line points(maybe just read from data/non na rows)
+
+    def get_uploaded_file(self):
+        uploaded_file = st.file_uploader("Choose a file")
+
+        st.write("If your data has uploaded correctly it will appear below.")
+        
+        if uploaded_file is not None:
+            self.df = pd.read_csv(uploaded_file)
+            self.data = st.data_editor(self.df, num_rows="dynamic")
+            self.pred_data = self.data[str(self.x)]
+            
 
     def get_test_replicates(self):
         self.test_replicates = st.number_input("Enter number of test replicates", min_value=1, value=1, step=1)
         st.write("Number of test replicates: ", self.test_replicates)
 
     def get_cal_line_points(self):
-        # self.cal_line_points = st.number_input("Enter number of calibration line points", min_value=1, value=1, step=1)
-        # st.write("Number of calibration line points: ", self.cal_line_points)
         self.cal_line_points = len(self.data)
         assert len(self.data) > 1, "Calibration line must have at least 2 points"
 
     def run(self):
-        self.generate_dataframe()
         self.get_test_replicates()
         self.get_cal_line_points()
 
   
-
-exp = Experiment()
-
-exp.run()
-exp.tabulate_fit_data()
 
 @dataclass
 class CalibrationCurve:
@@ -65,6 +88,7 @@ class CalibrationCurve:
     slope: float = None
     intercept: float = None
     fitted_values: np.ndarray = None
+    r_squared: float = None
 
 
     def fit_ols(self):
@@ -72,6 +96,7 @@ class CalibrationCurve:
         X = sm.add_constant(X)
         y = self.experiment.data[self.experiment.y]
         self.fitted_model = sm.OLS(y, X).fit()
+        self.r_squared = self.fitted_model.rsquared
 
     def get_params(self):
         self.slope = self.fitted_model.params[1]
@@ -80,28 +105,66 @@ class CalibrationCurve:
     def get_fitted_values(self):
         self.fitted_values = self.slope * self.experiment.data[self.experiment.x] + self.intercept
 
-    def run(self):
-        self.fit_ols()
-        self.get_params()
-        self.get_fitted_values()
 
     def tabulate_fit_data(self):
         fit_data = pd.DataFrame(
             [
-                {"name": "Test Replicates", "value": self.test_replicates},
-                {"name": "Calibration Line Points", "value": self.cal_line_points},
-                {"name": "Predictor", "value": self.x},
-                {"name": "Response", "value": self.y},
+                {"name": "Predictor", "value": self.experiment.x},
+                {"name": "Response", "value": self.experiment.y},
                 {"name": "Slope", "value": self.slope},
                 {"name": "Intercept", "value": self.intercept},
-                {"name": "R Squared", "value": self.fitted_model.r_squared},
+                {"name": "R Squared", "value": self.r_squared},
             ]
         )
         st.write(fit_data)
 
-cal = CalibrationCurve(exp)
-cal.run()
-cal.tabulate_fit_data()
+
+    def cal_curve_plot(self):
+            pred_ols = self.fitted_model.get_prediction()
+            iv_l = pred_ols.summary_frame()["obs_ci_lower"]
+            iv_u = pred_ols.summary_frame()["obs_ci_upper"]
+
+            fig, ax = plt.subplots(figsize=(8, 6))
+            ax.set_title("Calibration Curve")
+            ax.set_xlabel(self.experiment.x)
+            ax.set_ylabel(self.experiment.y)
+            ax.plot(self.experiment.data[self.experiment.x], self.experiment.data[self.experiment.y], "o", label="data")
+            ax.plot(self.experiment.data[self.experiment.x], self.fitted_model.fittedvalues, "b--.", label="OLS")
+            ax.plot(self.experiment.data[self.experiment.x], iv_u, "r--")
+            ax.plot(self.experiment.data[self.experiment.x], iv_l, "r--")
+    
+            ax.text(
+                0.95,
+                0.05,
+                f"y = {self.slope:.2f}x + {self.intercept:.2f}",
+                verticalalignment="bottom",
+                horizontalalignment="right",
+                transform=ax.transAxes,
+            )
+        
+            ax.text(
+                0.95,
+                0.01,
+                f"$R^2$ = {self.r_squared:.2f}",
+                verticalalignment="bottom",
+                horizontalalignment="right",
+                transform=ax.transAxes,
+            )
+            ax.legend(loc="best")
+            st.pyplot(fig)
+
+
+    def run(self):
+        self.fit_ols()
+        self.get_params()
+        self.get_fitted_values()
+        self.tabulate_fit_data()
+        # self.cal_curve_plot()
+
+    def inverse_prediction(self):
+        unknown = st.number_input("Enter unknown value")
+        pred = (unknown - self.intercept)/self.slope
+        return st.write(pred)
 
 
 @dataclass 
@@ -115,14 +178,8 @@ class Stats:
     df_resid: int = None
     r_squared: float = None
 
-    def inverse_prediction(self, unknown):
-        unknown = st.number_input("Enter unknown value", min_value=0.0, value=0.0, step=0.1)
-        if len(unknown) > 1:
-            y = np.mean(unknown)
-        else:
-            y = unknown[0]
-        
-        return (y - self.intercept)/self.slope
+
+      
 
     def calculate_sse(self):
         self.curve.get_fitted_values()
@@ -131,11 +188,11 @@ class Stats:
     def calculate_syx(self):
         return np.sqrt((self.calculate_sse())/(len(self.experiment.data[self.experiment.x])-2))
 
-    # def get_t_value(self,alpha=0.05):
-        # return sp.stats.t.ppf(1 - alpha/2, self.df_resid)
+    def get_t_value(self, alpha):
+        return sp.stats.t.ppf(1 - alpha/2, self.df_resid)
 
-    # def calculate_uncertainty(self):
-        # return self.calculate_sxhat() * self.get_t_value(0.05)
+    def calculate_uncertainty(self):
+        return self.calculate_sxhat() * self.get_t_value(0.05)
 
     def calculate_sxhat(self):
         return (self.calculate_syx() / self.curve.slope) * np.sqrt( 1/ self.experiment.test_replicates + 1 / self.experiment.cal_line_points) 
@@ -143,9 +200,9 @@ class Stats:
     def tabulate_stats(self):
         self.sse = self.calculate_sse()
         self.syx = self.calculate_syx()
-        # self.uncertainty = self.calculate_uncertainty()
-        # self.t_value = self.get_t_value(0.05)
         self.df_resid = self.curve.fitted_model.df_resid
+        self.t_value = self.get_t_value(0.05)
+        self.uncertainty = self.calculate_uncertainty()
         self.r_squared = self.curve.fitted_model.rsquared
 
         stats_table = pd.DataFrame(
@@ -153,33 +210,45 @@ class Stats:
                 {"name": "SSE", "value": self.sse},
                 {"name": "Syx", "value": self.syx},
                 {"name": "Uncertainty", "value": self.uncertainty},
-                # {"name": "t-value", "value": self.t_value},
+                {"name": "t-value", "value": self.t_value},
                 {"name": "df_resid", "value": self.df_resid},
                 {"name": "R-squared", "value": self.r_squared}
             ]
         )
         st.write(stats_table)
 
-stats = Stats(exp, cal)
-stats.tabulate_stats()
+# stats = Stats(exp, cal)
+# stats.tabulate_stats()
 
 
 
+def main():
+    exp = Experiment()
+    exp.user_input()
+    exp.run()
 
 
 
-# stats = pd.DataFrame(
-#     [
-#         {"name": "R-squared", "value": model.rsquared},
-#         {"name": "Slope", "value": model.params[1]},
-#         {"name": "Intercept", "value": model.params[0]}
+    st.header("Fitted model")
+    col1, col2 = st.columns(2)
+    cal = CalibrationCurve(exp)
 
-#     ]
-# )
+    with col1:
+        cal.run()
+    # cal = CalibrationCurve(exp)
+    # cal.run()
+    with col2:
+        stat = Stats(exp, cal)
+        stat.tabulate_stats()
+    cal.cal_curve_plot()
 
-# def calculate_fitted_values(self):
-        
-#         self.fitted_values = self.slope * self.x + self.intercept
+
+    st.header("Inverse Prediction")
+    cal.inverse_prediction()
+
+
+if __name__ == "__main__":
+    main()
 
    
 
