@@ -30,16 +30,17 @@ class Experiment:
         st.write("Enter the column names for your predictor and response variables exactly as they appear in your csv file.")
 
 
-        self.x = st.text_input("Enter predictor column name")
-    
-        self.y = st.text_input("Enter response column name")
+  
 
         st.write('You selected:', option)
 
         if option == 'Enter the data':
             self.generate_dataframe()
         elif option == 'Upload a CSV':
+            self.x = st.text_input("Enter predictor column name")
+            self.y = st.text_input("Enter response column name")
             self.get_uploaded_file()
+            
 
 
     def generate_dataframe(self):
