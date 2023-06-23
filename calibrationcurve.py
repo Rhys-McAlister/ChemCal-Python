@@ -46,11 +46,13 @@ class Experiment:
     def generate_dataframe(self):
         self.df = pd.DataFrame(
             [
-                {"predictor": 1, "response": 1028723 },
-                {"predictor": 5, "response": 4623393 },
-                {"predictor": 10, "response": 9147662 },
-                {"predictor": 20, "response": 15767629 },
-                {"predictor": 50, "response": 33143949 },
+                {"predictor": 0.2, "response": 0.221 },
+                {"predictor": 0.05, "response": 0.057 },
+                {"predictor": 0.1, "response": 0.119 },
+                {"predictor": 0.8, "response": 0.73 },
+                {"predictor": 0.6, "response": 0.599 },
+                {"predictor": 0.4, "response": 0.383 }
+
                 
             ]
         )
@@ -170,7 +172,9 @@ class CalibrationCurve:
         unknown = st.number_input("Enter unknown value")
         pred = (unknown - self.intercept)/self.slope
         return st.write(pred)
+    
 
+    
 
 @dataclass 
 class Stats:
@@ -182,8 +186,10 @@ class Stats:
     t_value: float = None
     df_resid: int = None
     r_squared: float = None
-
-
+    sumsquares: float = None
+    sr: float = None
+    test_repeats: int = None
+    cal_line_points: int = None
       
 
     def calculate_sse(self):
@@ -202,6 +208,17 @@ class Stats:
     def calculate_sxhat(self):
         return (self.calculate_syx() / self.curve.slope) * np.sqrt( 1/ self.experiment.test_replicates + 1 / self.experiment.cal_line_points) 
 
+    def calculate_sum_square(self):
+        return np.sum((self.experiment.data[self.experiment.x] - self.experiment.data[self.experiment.x].mean())**2)
+    
+    # y0: mean of replicate observations
+    # new input value for obs values
+    
+    def calculate_hibbert_uncertainty(slope, sr, test_repeats, syx, cal_points, ybar, y0):
+        return (1/self.curve.slope) * np.sqrt(((sr**2)/test_repeats) + ((syx**2)/cal_points) + (((syx**2)*((y0-ybar)**2))/((self.curve.slope**2)*(self.sumsquares))))
+    
+    
+    
     def tabulate_stats(self):
         self.sse = self.calculate_sse()
         self.syx = self.calculate_syx()
@@ -209,6 +226,7 @@ class Stats:
         self.t_value = self.get_t_value(0.05)
         self.uncertainty = self.calculate_uncertainty()
         self.r_squared = self.curve.fitted_model.rsquared
+        self.sumsquares = self.calculate_sum_square()
 
         stats_table = pd.DataFrame(
             [
@@ -217,15 +235,57 @@ class Stats:
                 {"name": "Uncertainty", "value": self.uncertainty},
                 {"name": "t-value", "value": self.t_value},
                 {"name": "df_resid", "value": self.df_resid},
-                {"name": "R-squared", "value": self.r_squared}
+                {"name": "R-squared", "value": self.r_squared},
+                {"name": "Sum of squares", "value": self.sumsquares},
             ]
         )
         st.write(stats_table)
 
-# stats = Stats(exp, cal)
-# stats.tabulate_stats()
+@dataclass
+class InversePrediction:
+    experiment: Experiment
+    curve: CalibrationCurve
+    stats: Stats
+    unknowns: pd.DataFrame = pd.DataFrame(
+        [
+            {"Observation": 0.490},
+            {"Observation": 0.471},
+            {"Observation": 0.484},
+            {"Observation": 0.473},
+            {"Observation": 0.479},
+            {"Observation": 0.492},
+
+        ]
+    )
+    edited_unknowns = None
+    hibbert_uncertainty = None
+    test_repeats = None
+    mean_replicate_observations = None
+    average_response_cal_line = None
+    sr = None
 
 
+
+    def user_input(self):
+        self.edited_unknowns = st.data_editor(self.unknowns, num_rows="dynamic")
+        self.test_repeats = len(self.edited_unknowns)
+        self.mean_replicate_observations = np.mean(self.edited_unknowns["Observation"])
+        self.sr = np.std(self.edited_unknowns["Observation"])
+        self.average_response_cal_line = np.mean(self.experiment.data[self.experiment.y])
+
+
+    def calculate_hibbert_uncertainty(self):
+        self.hibbert_uncertainty =  (1/self.curve.slope) * np.sqrt(((self.sr**2)/self.test_repeats) + ((self.stats.syx**2)/self.experiment.cal_line_points) + 
+                                                                   (((self.stats.syx**2)*((self.mean_replicate_observations-self.average_response_cal_line)**2))/((self.curve.slope**2)*(self.stats.sumsquares))))
+
+    
+
+    def inverse_prediction_hibbert(self):
+        self.calculate_hibbert_uncertainty()
+
+        unknown_h = st.number_input("Enter unknown value", key="unknown_h")
+        pred = (unknown_h - self.curve.intercept)/self.curve.slope
+        return st.write(f"{pred: 3f} +/- {self.hibbert_uncertainty * self.stats.get_t_value(0.05): 2f}")
 
 def main():
     exp = Experiment()
@@ -250,6 +310,10 @@ def main():
 
     st.header("Inverse Prediction")
     cal.inverse_prediction()
+
+    ip = InversePrediction(exp, cal, stat)
+    ip.user_input()
+    ip.inverse_prediction_hibbert()
 
 
 if __name__ == "__main__":
