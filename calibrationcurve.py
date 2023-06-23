@@ -6,6 +6,7 @@ import scipy as sp
 import matplotlib.pyplot as plt
 from dataclasses import dataclass
 import typing
+import seaborn as sns
 
 st.title("Chem Cal Python")
 
@@ -143,7 +144,7 @@ class CalibrationCurve:
             ax.text(
                 0.95,
                 0.05,
-                f"y = {self.slope:.2f}x + {self.intercept:.2f}",
+                f"y = {self.slope:.3f}x + {self.intercept:.3f}",
                 verticalalignment="bottom",
                 horizontalalignment="right",
                 transform=ax.transAxes,
@@ -152,7 +153,7 @@ class CalibrationCurve:
             ax.text(
                 0.95,
                 0.01,
-                f"$R^2$ = {self.r_squared:.2f}",
+                f"$R^2$ = {self.r_squared:.3f}",
                 verticalalignment="bottom",
                 horizontalalignment="right",
                 transform=ax.transAxes,
@@ -209,13 +210,16 @@ class Stats:
         return (self.calculate_syx() / self.curve.slope) * np.sqrt( 1/ self.experiment.test_replicates + 1 / self.experiment.cal_line_points) 
 
     def calculate_sum_square(self):
-        return np.sum((self.experiment.data[self.experiment.x] - self.experiment.data[self.experiment.x].mean())**2)
+        return np.sum((self.experiment.data[self.experiment.x] - 
+                       self.experiment.data[self.experiment.x].mean())**2)
     
     # y0: mean of replicate observations
     # new input value for obs values
     
     def calculate_hibbert_uncertainty(slope, sr, test_repeats, syx, cal_points, ybar, y0):
-        return (1/self.curve.slope) * np.sqrt(((sr**2)/test_repeats) + ((syx**2)/cal_points) + (((syx**2)*((y0-ybar)**2))/((self.curve.slope**2)*(self.sumsquares))))
+        return (1/self.curve.slope) * np.sqrt(((sr**2)/test_repeats) + ((syx**2)/cal_points) 
+                                              + 
+                                              (((syx**2)*((y0-ybar)**2))/((self.curve.slope**2)*(self.sumsquares))))
     
     
     
@@ -286,6 +290,18 @@ class InversePrediction:
         unknown_h = st.number_input("Enter unknown value", key="unknown_h")
         pred = (unknown_h - self.curve.intercept)/self.curve.slope
         return st.write(f"{pred: 3f} +/- {self.hibbert_uncertainty * self.stats.get_t_value(0.05): 2f}")
+    
+    def plot_inverse_prediction(self):
+        fig, ax = plt.subplots()
+        sns.regplot(x=self.experiment.data[self.experiment.x], y=self.experiment.data[self.experiment.y], ci=95)
+        ax.set_title("Calibration curve")
+        ax.set_xlabel("Predictor")
+        ax.set_ylabel("Response")
+        ax.annotate(f"y = {self.curve.slope: 3f}x + {self.curve.intercept: 3f}", xy=(0.1, 0.9), xycoords="axes fraction")
+        ax.annotate(f"R-squared = {self.stats.r_squared: 3f}", xy=(0.1, 0.8), xycoords="axes fraction")
+        
+        st.pyplot(fig)
+
 
 def main():
     exp = Experiment()
@@ -294,7 +310,7 @@ def main():
 
 
 
-    st.header("Fitted model")
+    st.header("Fitted model") 
     col1, col2 = st.columns(2)
     cal = CalibrationCurve(exp)
 
@@ -309,11 +325,12 @@ def main():
 
 
     st.header("Inverse Prediction")
-    cal.inverse_prediction()
 
     ip = InversePrediction(exp, cal, stat)
+    st.write("Enter your observations for the unknown value in the field below and press enter after each value.")  
     ip.user_input()
     ip.inverse_prediction_hibbert()
+    ip.plot_inverse_prediction()
 
 
 if __name__ == "__main__":
