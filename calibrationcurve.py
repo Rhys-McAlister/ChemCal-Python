@@ -254,6 +254,7 @@ class InversePrediction:
     experiment: Experiment
     curve: CalibrationCurve
     stats: Stats
+    pred = None
     unknowns: pd.DataFrame = pd.DataFrame(
         [
             {"Observation": 0.490},
@@ -291,9 +292,9 @@ class InversePrediction:
     def inverse_prediction_hibbert(self):
         self.calculate_hibbert_uncertainty()
 
-        unknown_h = st.number_input("Enter unknown value", key="unknown_h")
-        pred = (unknown_h - self.curve.intercept)/self.curve.slope
-        return st.write(f"{pred: 3f} +/- {self.hibbert_uncertainty * self.stats.get_t_value(0.05): 2f}")
+        # unknown_h = st.number_input("Enter unknown value", key="unknown_h")
+        self.pred = (self.mean_replicate_observations - self.curve.intercept)/self.curve.slope
+        return st.write(f"{self.pred: 3f} +/- {self.hibbert_uncertainty * self.stats.get_t_value(0.05): 2f}")
     
     def plot_inverse_prediction(self):
         fig, ax = plt.subplots()
@@ -303,7 +304,13 @@ class InversePrediction:
         ax.set_ylabel("Response")
         ax.annotate(f"y = {self.curve.slope: 3f}x + {self.curve.intercept: 3f}", xy=(0.1, 0.9), xycoords="axes fraction")
         ax.annotate(f"R-squared = {self.stats.r_squared: 3f}", xy=(0.1, 0.8), xycoords="axes fraction")
-        
+        # plot pred value on the plot
+        ax.axvline(x=self.pred, color="red", linestyle="--")
+        # plot uncertainty on the plot
+        # ax.axvline(x=self.pred + self.hibbert_uncertainty * self.stats.get_t_value(0.05), color="black", linestyle="--")
+        # ax.axvline(x=self.pred - self.hibbert_uncertainty * self.stats.get_t_value(0.05), color="black", linestyle="--")
+        # annotate pred value on plot
+        ax.annotate(f"Predicted value = {self.pred: 3f}", xy=(0.09, 0.6), xycoords="data")
         st.pyplot(fig)
 
 
@@ -331,7 +338,13 @@ def main():
     st.header("Inverse Prediction")
 
     ip = InversePrediction(exp, cal, stat)
-    st.write("Enter your observations for the unknown value in the field below and press enter after each value.")  
+    st.write("Enter your observations for the unknown value in the field below and press enter after each value.") 
+    st.write("The uncertainty of this prediction is calculated using the equation below:")
+
+    st.latex(r'''
+    s_{\hat{x}_0}=\frac{1}{b} \sqrt{\frac{s_r^2}{m}+\frac{s_{y / x}^2}{n}+\frac{s_{y / x}^2\left(y_0-\bar{y}\right)^2}{b^2 \sum_{i=1}^n\left(x_i-\bar{x}\right)^2}})
+    ''')
+
     ip.user_input()
     ip.inverse_prediction_hibbert()
     ip.plot_inverse_prediction()
