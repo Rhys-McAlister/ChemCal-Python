@@ -8,8 +8,12 @@ from dataclasses import dataclass
 import typing
 import seaborn as sns
 
-st.title("Chem Cal Python")
+st.title("ChemCal Python")
 
+st.write("Analyse your calibration curve data with ChemCal Python. Select manual data entry to see an example.")
+# markdown link format
+
+st.write("## Input Data")
 
 @dataclass
 class Experiment:
@@ -26,7 +30,7 @@ class Experiment:
         st.write("Enter your data into the field below or upload a csv file.")
         option = st.selectbox(
             'Do you want to enter your data or upload a CSV?',
-            ('Upload a CSV', 'Enter the data'))
+            ('Enter the data', 'Upload a CSV'))
 
         st.write("Enter the column names for your predictor and response variables exactly as they appear in your csv file.")
 
@@ -216,8 +220,8 @@ class Stats:
     # y0: mean of replicate observations
     # new input value for obs values
     
-    def calculate_hibbert_uncertainty(slope, sr, test_repeats, syx, cal_points, ybar, y0):
-        return (1/self.curve.slope) * np.sqrt(((sr**2)/test_repeats) + ((syx**2)/cal_points) 
+    def calculate_hibbert_uncertainty(self, sr, test_repeats, syx, cal_points, ybar, y0):
+        return (1/ self.curve.slope) * np.sqrt(((sr**2)/test_repeats) + ((syx**2)/cal_points) 
                                               + 
                                               (((syx**2)*((y0-ybar)**2))/((self.curve.slope**2)*(self.sumsquares))))
     
@@ -310,7 +314,7 @@ def main():
 
 
 
-    st.header("Fitted model") 
+    st.header("Calibration Curve") 
     col1, col2 = st.columns(2)
     cal = CalibrationCurve(exp)
 
@@ -331,6 +335,7 @@ def main():
     ip.user_input()
     ip.inverse_prediction_hibbert()
     ip.plot_inverse_prediction()
+    
 
 
 if __name__ == "__main__":
