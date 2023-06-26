@@ -255,17 +255,7 @@ class InversePrediction:
     curve: CalibrationCurve
     stats: Stats
     pred = None
-    unknowns: pd.DataFrame = pd.DataFrame(
-        [
-            {"Observation": 0.490},
-            {"Observation": 0.471},
-            {"Observation": 0.484},
-            {"Observation": 0.473},
-            {"Observation": 0.479},
-            {"Observation": 0.492},
-
-        ]
-    )
+    unknowns: pd.DataFrame = None
     edited_unknowns = None
     hibbert_uncertainty = None
     test_repeats = None
@@ -276,7 +266,18 @@ class InversePrediction:
 
 
     def user_input(self):
-        self.edited_unknowns = st.data_editor(self.unknowns, num_rows="dynamic")
+        unknowns = pd.DataFrame(
+        [
+            {"Observation": 0.490},
+            {"Observation": 0.471},
+            {"Observation": 0.484},
+            {"Observation": 0.473},
+            {"Observation": 0.479},
+            {"Observation": 0.492},
+
+        ]
+    )
+        self.edited_unknowns = st.data_editor(unknowns, num_rows="dynamic")
         self.test_repeats = len(self.edited_unknowns)
         self.mean_replicate_observations = np.mean(self.edited_unknowns["Observation"])
         self.sr = np.std(self.edited_unknowns["Observation"])
