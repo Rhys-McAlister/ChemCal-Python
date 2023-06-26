@@ -10,7 +10,7 @@ import seaborn as sns
 
 st.title("ChemCal Python")
 
-st.write("Analyse your calibration curve data with ChemCal Python. Select manual data entry to see an example.")
+st.write("Analyse your calibration curve data with ChemCal Python. Select manual data entry to see an example. ")
 # markdown link format
 
 st.write("## Input Data")
